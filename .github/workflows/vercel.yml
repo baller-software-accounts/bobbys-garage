@@ -1,0 +1,90 @@
+# CI + optional Vercel deploy
+# (A) "Lint & build" always runs on every push/PR — needs no secrets.
+# (B) "Deploy to Vercel" runs only when VERCEL_TOKEN, VERCEL_ORG_ID and
+#     VERCEL_PROJECT_ID repo secrets all exist; otherwise it skips with a warning.
+#     Preview on PRs / non-main branches, --prod on pushes to main.
+# Day-to-day deploys are currently done via the Vercel MCP (create_deployment from
+# the public GitHub commit) or, once installed, the Vercel GitHub app — so a
+# personal VERCEL_TOKEN is optional. If the Vercel GitHub app is installed AND a
+# token is added here, disable one of the two to avoid double deploys.
+name: CI & Vercel Deploy
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: vercel-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+  VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+jobs:
+  build:
+    name: Lint & build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+
+  deploy:
+    name: Deploy to Vercel
+    needs: build
+    runs-on: ubuntu-latest
+    # Skip for PRs from forks (no access to secrets)
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+    steps:
+      - name: Check Vercel secrets
+        id: check
+        run: |
+          if [ -z "$VERCEL_TOKEN" ] || [ -z "$VERCEL_ORG_ID" ] || [ -z "$VERCEL_PROJECT_ID" ]; then
+            echo "::warning::VERCEL_TOKEN / VERCEL_ORG_ID / VERCEL_PROJECT_ID secret missing — skipping Vercel deploy."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        if: steps.check.outputs.ready == 'true'
+      - uses: actions/setup-node@v4
+        if: steps.check.outputs.ready == 'true'
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install Vercel CLI
+        if: steps.check.outputs.ready == 'true'
+        run: npm install --global vercel@latest
+      - name: Set target environment
+        if: steps.check.outputs.ready == 'true'
+        run: |
+          if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "VERCEL_ENV=production" >> "$GITHUB_ENV"
+            echo "PROD_FLAG=--prod" >> "$GITHUB_ENV"
+          else
+            echo "VERCEL_ENV=preview" >> "$GITHUB_ENV"
+            echo "PROD_FLAG=" >> "$GITHUB_ENV"
+          fi
+      - name: Pull Vercel environment
+        if: steps.check.outputs.ready == 'true'
+        run: vercel pull --yes --environment=$VERCEL_ENV --token="$VERCEL_TOKEN"
+      - name: Build
+        if: steps.check.outputs.ready == 'true'
+        run: vercel build $PROD_FLAG --token="$VERCEL_TOKEN"
+      - name: Deploy
+        if: steps.check.outputs.ready == 'true'
+        id: deploy
+        run: |
+          url=$(vercel deploy --prebuilt $PROD_FLAG --token="$VERCEL_TOKEN")
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "### Vercel $VERCEL_ENV deployment: $url" >> "$GITHUB_STEP_SUMMARY"

@@ -52,3 +52,12 @@ public/images/        hero.jpg, shop-bay.jpg, mobile-service.jpg, engine-work.jp
 - Open/closed status is computed in the browser for `America/Chicago` using `useSyncExternalStore`. The server renders a neutral hint, so the client value never causes a hydration mismatch.
 - The contact form is **client-side only (demo)**. It validates input and shows a success state but sends nothing. Hook it up to an email or CRM endpoint before launch.
 - Only the four verbatim Google review quotes in `business.ts` should be used on the site.
+
+## Deployment
+
+- **Live:** https://bobbys-garage.vercel.app (Vercel team `greg152s-projects`, project `bobbys-garage`).
+- **How it deploys today:** via the Vercel MCP `create_deployment`, which builds the exact public GitHub commit server-side — no personal Vercel token needed.
+- **GitHub Actions** (`.github/workflows/vercel.yml`):
+  - `Lint & build` runs on every push/PR (no secrets).
+  - `Deploy to Vercel` runs only if `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID` secrets exist (org/project IDs are already set). Without a token it skips cleanly.
+- **Alternative:** install the Vercel GitHub app on `baller-software-accounts` to get automatic preview/production deploys on every push (then don't also enable the Actions deploy job).
