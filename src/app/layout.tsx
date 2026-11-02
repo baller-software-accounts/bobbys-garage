@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { Analytics } from "@vercel/analytics/next";
 import { Barlow_Condensed, Inter } from "next/font/google";
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
@@ -67,6 +68,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         </main>
         <Footer />
         <MobileCallBar />
+        <Analytics />
       </body>
     </html>
   );
