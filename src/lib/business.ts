@@ -4,8 +4,8 @@
  * update facts in this one file only.
  */
 
-// TODO: replace with the real production domain once one exists.
-export const SITE_URL = "https://bobbysgarage.example";
+// Current public preview on Vercel. TODO: switch to the real custom domain once one exists.
+export const SITE_URL = "https://bobbys-garage.vercel.app";
 
 export const BUSINESS = {
   name: "Bobby's Garage",
